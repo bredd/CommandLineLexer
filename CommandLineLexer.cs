@@ -46,6 +46,7 @@ POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace CodeBit
 {
@@ -295,6 +296,7 @@ namespace CodeBit
         /// <remarks>
         /// The message is prefixed with "Command Line Error: "
         /// </remarks>
+        [DoesNotReturn]
         public void ThrowError(string message)
         {
             throw new CommandLineException("Command Line Error: " + message);
@@ -307,9 +309,19 @@ namespace CodeBit
         /// <remarks>The error message is prefixed with "Command Line Error on Option" with the
         /// option name if CurrentOption has a value. Otherwise prefixed with "Command Line Error"
         /// </remarks>
+        [DoesNotReturn]
         public void ThrowValueError(string message)
         {
             throw new CommandLineException(OptionErrPrefix + message);
+        }
+
+        /// <summary>
+        /// Throws an error indicating that the current argument was unexpected.
+        /// </summary>
+        [DoesNotReturn]
+        public void ThrowUnexpectedArgError()
+        {
+            throw new CommandLineException("Command Line Error: Unexpected argument: " + Current);
         }
 
         private string OptionErrPrefix

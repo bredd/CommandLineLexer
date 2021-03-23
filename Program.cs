@@ -28,17 +28,34 @@ namespace UnitTest
         {
             var clx = new CommandLineLexer(args);
 
-            string command = clx.ReadNextArg();
-            while (clx.MoveNext())
+            // Fake arguments to parse
+            string arg_command;
+            string arg_file;
+            int arg_int;
+            string arg_name;
+
+            arg_command = clx.ReadNextArg();
+            while (clx.MoveNextOption())
             {
-                /*
-                switch(clx.LatestOption)
+                switch(clx.Current)
                 {
+                    case "-File":
+                        arg_file = clx.ReadNextValue();
+                        break;
 
+                    case "-Num":
+                        arg_int = clx.ReadNextValueInt();
+                        break;
+
+                    case "-Name":
+                        arg_name = clx.ReadNextValue();
+                        break;
+
+                    default:
+                        clx.ThrowUnexpectedArgError();
+                        break; // Not necessary except for compiler warning.
                 }
-                */
             }
-
         }
 
         static string[] Test1Args = new string[]
