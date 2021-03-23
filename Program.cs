@@ -23,6 +23,24 @@ namespace UnitTest
             }
         }
 
+        // This is just a non-functional sample.
+        static void ParseCommandLineSample(string[] args)
+        {
+            var clx = new CommandLineLexer(args);
+
+            string command = clx.ReadNextArg();
+            while (clx.MoveNext())
+            {
+                /*
+                switch(clx.LatestOption)
+                {
+
+                }
+                */
+            }
+
+        }
+
         static string[] Test1Args = new string[]
         {
             "Command",
@@ -43,7 +61,7 @@ namespace UnitTest
             Assert(cl.IsOption);
             Assert(cl.ReadNextValue() == Test1Args[2]);
             Assert(!cl.IsOption);
-            Assert(cl.ReadNextArg() == Test1Args[3]);
+            Assert(cl.ReadNextOption() == Test1Args[3]);
             Assert(cl.IsOption);
             Assert(cl.ReadNextValueInt() == 4);
             Assert(!cl.IsOption);
@@ -60,15 +78,20 @@ namespace UnitTest
             AssertCurrentIntFails(cl, Test1Args[0]);
             Assert(cl.ReadNextArg() == Test1Args[1]);
             AssertCurrentIntFails(cl, Test1Args[1]);
+            AssertReadNextOptionFails(cl, Test1Args[2]);
             Assert(cl.ReadNextValue() == Test1Args[2]);
             AssertReadNextValueFails(cl, Test1Args[3]);
-            Assert(cl.ReadNextArg() == Test1Args[3]);
+            Assert(cl.ReadNextOption() == Test1Args[3]);
             AssertCurrentIntFails(cl, Test1Args[3]);
+            AssertReadNextOptionFails(cl, Test1Args[4]);
             Assert(cl.ReadNextValueInt() == 4);
+            AssertReadNextOptionFails(cl, Test1Args[5]);
             Assert(cl.ReadNextValueInt() == 5);
+            AssertReadNextOptionFails(cl, Test1Args[6]);
             Assert(cl.ReadNextValue() == Test1Args[6]);
             AssertCurrentIntFails(cl, Test1Args[6]);
             Assert(cl.ReadNextArg() == null);
+            Assert(cl.ReadNextOption() == null);
         }
 
         static void SimpleTest(string[] args)
@@ -115,6 +138,28 @@ namespace UnitTest
             }
         }
 
+        static void AssertReadNextOptionFails(CommandLineLexer cl, string expectedArg)
+        {
+            bool failure = false;
+            try
+            {
+                cl.ReadNextOption();
+                failure = true;
+            }
+            catch (Exception err)
+            {
+                if (!err.Message.EndsWith($"Option expected. Found \"{expectedArg}\""))
+                {
+                    throw new ApplicationException("ReadNextOption Failure: Error message mismatch: " + err.Message);
+                }
+            }
+
+            if (failure)
+            {
+                throw new ApplicationException("ReadNextOption didn't fail when it should have.");
+            }
+        }
+
         static void AssertCurrentIntFails(CommandLineLexer cl, string expectedArg)
         {
             bool failure = false;
@@ -138,4 +183,5 @@ namespace UnitTest
         }
 
     }
+
 }

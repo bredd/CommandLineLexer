@@ -164,7 +164,7 @@ namespace CodeBit
         /// <summary>
         /// Moves to the next argument. Returns true if another argument is present. Otherwise, false.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True if another argument was read. Else, false.</returns>
         public bool MoveNext()
         {
             if (m_currentArg >= m_args.Length) return false;
@@ -182,6 +182,29 @@ namespace CodeBit
         }
 
         /// <summary>
+        /// Moves to the next option
+        /// </summary>
+        /// <remarks>
+        /// Throws an <see cref="CommandLineException"/> if the next argument is is NOT an option
+        /// (prefixed with a hyphen). When an exception is thrown, the current value does not advance.
+        /// </remarks>
+        /// <returns>True if moved to an option. False if at the end of the argument set.</returns>
+        /// <exception cref="CommandLineException">Thrown if the next argument is NOT an option.</exception>
+        public bool MoveNextOption()
+        {
+            if (m_currentArg >= m_args.Length - 1)
+            {
+                m_currentArg = m_args.Length;
+                m_latestOption = string.Empty;
+                return false; 
+            }
+            if (m_args[m_currentArg + 1].Length <= 0 || m_args[m_currentArg + 1][0] != '-')
+                ThrowValueError($"Option expected. Found \"{m_args[m_currentArg + 1]}\"");
+            ++m_currentArg;
+            return true;
+        }
+
+        /// <summary>
         /// Moves to the next value, presumably for the current option.
         /// </summary>
         /// <remarks>
@@ -195,18 +218,39 @@ namespace CodeBit
         {
             if (m_currentArg >= m_args.Length - 1)
                 ThrowValueError("Value expected.");
-            if (m_args[m_currentArg+1][0] == '-')
+            if (m_args[m_currentArg+1].Length > 0 && m_args[m_currentArg+1][0] == '-')
                 ThrowValueError($"Value expected. Found \"{m_args[m_currentArg + 1]}\"");
             ++m_currentArg;
         }
 
         /// <summary>
-        /// Moves to the next argument and return it.
+        /// Moves to the next argument and returns it.
         /// </summary>
         /// <returns>The next argument or null if at the end of the argument list.</returns>
         public string ReadNextArg()
         {
             if (!MoveNext()) return null;
+            return Current;
+        }
+
+        /// <summary>
+        /// Moves to the next option and returns it.
+        /// </summary>
+        /// <returns>The next option or null if at the end of the argument list.</returns>
+        /// <remarks>
+        /// <para>The next argument must be an option, not a value. That is, it must be
+        /// prefixed with a hyphen. If the next argument does not have a hyphen prefix
+        /// then a <see cref="CommandLineException"/> is thrown. If there are no more
+        /// arguments then null is returned.</para>
+        /// <para>The null return behavior is in contrast with <see cref="ReadNextValue"/>
+        /// which throws an exception if there are no more arguments. But it makes sense
+        /// in the context in which each method is used.</para>
+        /// </remarks>
+        /// <returns>The next option in the argument list or null if no arguments remain.</returns>
+        /// <exception cref="CommandLineException">Thrown if the next argument is not an option.</exception>
+        public string ReadNextOption()
+        {
+            if (!MoveNextOption()) return null;
             return Current;
         }
 
