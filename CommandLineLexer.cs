@@ -1,8 +1,8 @@
 ﻿/*
 ---
-name: OAuth2.cs
+name: CommandLineLexer.cs
 description: CodeBit class for lexing (parsing) command lines.
-url: https://raw.githubusercontent.com/FileMeta/OAuth2CodeBit/master/OAuth2.cs
+url: https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
 version: 1.0
 keywords: CodeBit
 dateModified: 2021-03-22
