@@ -3,7 +3,7 @@
 name: CommandLineLexer.cs
 description: CodeBit class for lexing (parsing) command lines.
 url: https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
-version: 1.0
+version: 1.1
 keywords: CodeBit
 dateModified: 2021-03-22
 license: https://opensource.org/licenses/BSD-3-Clause
@@ -296,7 +296,7 @@ namespace CodeBit
         /// <remarks>
         /// The message is prefixed with "Command Line Error: "
         /// </remarks>
-        [DoesNotReturn]
+        /*[DoesNotReturn] Requires .Net 5.0_ or .Net Core 3.0+ */
         public void ThrowError(string message)
         {
             throw new CommandLineException("Command Line Error: " + message);
@@ -309,7 +309,7 @@ namespace CodeBit
         /// <remarks>The error message is prefixed with "Command Line Error on Option" with the
         /// option name if CurrentOption has a value. Otherwise prefixed with "Command Line Error"
         /// </remarks>
-        [DoesNotReturn]
+        /*[DoesNotReturn] Requires .Net 5.0_ or .Net Core 3.0+ */
         public void ThrowValueError(string message)
         {
             throw new CommandLineException(OptionErrPrefix + message);
@@ -318,7 +318,7 @@ namespace CodeBit
         /// <summary>
         /// Throws an error indicating that the current argument was unexpected.
         /// </summary>
-        [DoesNotReturn]
+        /*[DoesNotReturn]  Requires .Net 5.0_ or .Net Core 3.0+ */
         public void ThrowUnexpectedArgError()
         {
             throw new CommandLineException("Command Line Error: Unexpected argument: " + Current);
