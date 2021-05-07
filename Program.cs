@@ -13,6 +13,7 @@ namespace UnitTest
         {
             try
             {
+                Test0();
                 Test1();
 
                 Console.WriteLine("All tests passed.");
@@ -56,6 +57,21 @@ namespace UnitTest
                         break; // Not necessary except for compiler warning.
                 }
             }
+        }
+
+        static void Test0()
+        {
+            bool exceptionThrown = false;
+            try
+            {
+                var cl = new CommandLineLexer(new string[0]);
+            }
+            catch (CommandLineException err)
+            {
+                Assert(err.Message.Equals("Empty Command Line."));
+                exceptionThrown = true;
+            }
+            Assert(exceptionThrown);
         }
 
         static string[] Test1Args = new string[]

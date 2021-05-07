@@ -3,7 +3,7 @@
 name: CommandLineLexer.cs
 description: CodeBit class for lexing (parsing) command lines.
 url: https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
-version: 1.1
+version: 1.2
 keywords: CodeBit
 dateModified: 2021-03-22
 license: https://opensource.org/licenses/BSD-3-Clause
@@ -66,8 +66,9 @@ namespace CodeBit
         /// <summary>
         /// Initialize with the command line from the environment
         /// </summary>
-        public CommandLineLexer()
-            : this(Environment.GetCommandLineArgs())
+        /// <param name="acceptEmpty">If true, accept an empty command line. Else throws an exception.</param>
+        public CommandLineLexer(bool acceptEmpty=false)
+            : this(Environment.GetCommandLineArgs(), acceptEmpty)
         {
         }
 
@@ -75,9 +76,14 @@ namespace CodeBit
         /// Initialize with the specified arguments.
         /// </summary>
         /// <param name="args">An array of command-line arguments.</param>
-        public CommandLineLexer(string[] args)
+        /// <param name="acceptEmpty">If true, accept an empty command line. Else throws an exception.</param>
+        public CommandLineLexer(string[] args, bool acceptEmpty=false)
         {
             m_args = args;
+            if (m_args.Length == 0 && !acceptEmpty)
+            {
+                throw new CommandLineException("Empty Command Line.");
+            }
             Reset();
         }
 
