@@ -6,6 +6,7 @@ CodeBit Metadata
 &author="Brandt Redd"
 &url=https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
 &version=2.0
+&successorOf=https://raw.githubusercontent.com/bredd/CommandLineLexer/54ca47c0eca9572072bc1492da2d0eb447afb504/CommandLineLexer.cs
 &keywords=CodeBit
 &dateModified=2022-09-21
 &license=https://opensource.org/licenses/BSD-3-Clause
