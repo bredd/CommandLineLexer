@@ -1,14 +1,16 @@
 ﻿/*
----
-name: CommandLineLexer.cs
-description: CodeBit class for lexing (parsing) command lines.
-url: https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
-version: 1.2
-keywords: CodeBit
-dateModified: 2021-03-22
-license: https://opensource.org/licenses/BSD-3-Clause
-# Metadata in MicroYaml format. See http://filemeta.org/CodeBit.html
-...
+CodeBit Metadata
+
+&name=CommandLineLexer.cs
+&description="CodeBit class for lexing (parsing) command lines."
+&author="Brandt Redd"
+&url=https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
+&version=2.0
+&keywords=CodeBit
+&dateModified=2022-09-21
+&license=https://opensource.org/licenses/BSD-3-Clause
+
+About Codebits http://www.filemeta.org/CodeBit
 */
 
 /*
@@ -129,7 +131,7 @@ namespace CodeBit
         /// Returns the current argument as an integer.
         /// </summary>
         /// <exception cref="CommandLineException">Thrown if the value is not an integer.</exception>
-        public int CurrentInt
+        public int CurrentAsInt
         {
             get
             {
@@ -141,11 +143,15 @@ namespace CodeBit
         }
 
         /// <summary>
-        /// The latest option is the most recent argument with a - (dash) prefix.
+        /// The latest option is the most recent argument that was read as an option.
         /// </summary>
         /// <remarks>
-        /// This is useful for error reporting with an invalid value. It may also be cleared
-        /// (by setting to null or empty string) or set to a special value.
+        /// <para> It will have a dash (-) prefix. Filenames may also start with a dash so
+        /// the defining feature is that it was read as an option.
+        /// </para>
+        /// <para>This is useful for error reporting with an invalid value. It may also be
+        /// cleared (by setting to null or empty string) or set to a special value.
+        /// </para>
         /// </remarks>
         public string LatestOption
         {
@@ -181,10 +187,6 @@ namespace CodeBit
                 m_latestOption = string.Empty;
                 return false;
             }
-            if (IsOption)
-            {
-                m_latestOption = Current;
-            }
             return true;
         }
 
@@ -199,15 +201,16 @@ namespace CodeBit
         /// <exception cref="CommandLineException">Thrown if the next argument is NOT an option.</exception>
         public bool MoveNextOption()
         {
+            m_latestOption = string.Empty;
             if (m_currentArg >= m_args.Length - 1)
             {
                 m_currentArg = m_args.Length;
-                m_latestOption = string.Empty;
                 return false; 
             }
             if (m_args[m_currentArg + 1].Length <= 0 || m_args[m_currentArg + 1][0] != '-')
                 ThrowValueError($"Option expected. Found \"{m_args[m_currentArg + 1]}\"");
             ++m_currentArg;
+            m_latestOption = m_args[m_currentArg];
             return true;
         }
 
@@ -224,9 +227,7 @@ namespace CodeBit
         public void MoveNextValue()
         {
             if (m_currentArg >= m_args.Length - 1)
-                ThrowValueError("Value expected.");
-            if (m_args[m_currentArg+1].Length > 0 && m_args[m_currentArg+1][0] == '-')
-                ThrowValueError($"Value expected. Found \"{m_args[m_currentArg + 1]}\"");
+                ThrowValueError("Value expected but reached end of argument list.");
             ++m_currentArg;
         }
 
@@ -289,10 +290,10 @@ namespace CodeBit
         /// </remarks>
         /// <exception cref="CommandLineException">Thrown if at the end of the argument string
         /// or the next argument is an option.</exception>
-        public int ReadNextValueInt()
+        public int ReadNextValueAsInt()
         {
             MoveNextValue();
-            return CurrentInt;
+            return CurrentAsInt;
         }
 
         /// <summary>
@@ -336,7 +337,7 @@ namespace CodeBit
             {
                 return (string.IsNullOrEmpty(m_latestOption))
                     ? "Command Line Error: "
-                    : $"Command Line Error on Option \"{m_latestOption}\": ";
+                    : $"Command Line Error after Option \"{m_latestOption}\": ";
             }
         }
 
