@@ -24,8 +24,8 @@ namespace UnitTest
             }
         }
 
-        // This is just a non-functional sample.
-        static void ParseCommandLineSample(string[] args)
+        // This is just a non-functional sample of how to use the CommandLineLexer.
+        static void ParseCommandLineSample(string args)
         {
             var clx = new CommandLineLexer(args);
 
@@ -36,9 +36,10 @@ namespace UnitTest
             string arg_name;
 
             arg_command = clx.ReadNextArg();
-            while (clx.MoveNextOption())
+            while (clx.MoveNext())
             {
-                switch(clx.Current)
+                clx.ThrowIfNotOption();
+                switch (clx.Current)
                 {
                     case "-File":
                         arg_file = clx.ReadNextValue();
@@ -61,86 +62,55 @@ namespace UnitTest
 
         static void Test0()
         {
-            bool exceptionThrown = false;
-            try
-            {
-                var cl = new CommandLineLexer(new string[0]);
-            }
-            catch (CommandLineException err)
-            {
-                Assert(err.Message.Equals("Empty Command Line."));
-                exceptionThrown = true;
-            }
-            Assert(exceptionThrown);
+            var cl = new CommandLineLexer(String.Empty);
+            Assert(cl.IsEmptyCommandLine);
         }
 
-        static string[] Test1Args = new string[]
-        {
-            "Command",
-            "-option1", "SpamAndEggs",
-            "-numbers", "4", "5",
-            "AnotherCommand"
-        };
+        static string Test1Args = "Command -option1 SpamAndEggs -numbers 4 5 AnotherCommand -option2 \"-notanoption.jpg\"  ";
 
         static void Test1()
         {
-            SimpleTest(Test1Args);
-
             // Happy Path
             var cl = new CommandLineLexer(Test1Args);
-            Assert(cl.ReadNextArg() == Test1Args[0]);
+            Assert(cl.ReadNextArg() == "Command");
             Assert(!cl.IsOption);
-            Assert(cl.ReadNextArg() == Test1Args[1]);
+            cl.ThrowIfNotValue();
+            Assert(cl.ReadNextArg() == "-option1");
             Assert(cl.IsOption);
-            Assert(cl.ReadNextValue() == Test1Args[2]);
+            cl.ThrowIfNotOption();
+            Assert(cl.ReadNextValue() == "SpamAndEggs");
             Assert(!cl.IsOption);
-            Assert(cl.ReadNextOption() == Test1Args[3]);
+            cl.ThrowIfNotValue();
+            Assert(cl.ReadNextOption() == "-numbers");
             Assert(cl.IsOption);
             Assert(cl.ReadNextValueAsInt() == 4);
             Assert(!cl.IsOption);
             Assert(cl.ReadNextValueAsInt() == 5);
             Assert(!cl.IsOption);
-            Assert(cl.ReadNextValue() == Test1Args[6]);
+            Assert(cl.ReadNextValue() == "AnotherCommand");
             Assert(!cl.IsOption);
-            Assert(cl.ReadNextArg() == null);
+            Assert(cl.ReadNextOption() == "-option2");
+            Assert(cl.ReadNextValue() == "-notanoption.jpg");
+            Assert(cl.ReadNextOption() == null);
 
             // Error Path
             cl.Reset();
-            Assert(cl.ReadNextArg() == Test1Args[0]);
-            AssertCurrentIntFails(cl, Test1Args[0]);
-            Assert(cl.ReadNextArg() == Test1Args[1]);
-            AssertCurrentIntFails(cl, Test1Args[1]);
-            AssertReadNextOptionFails(cl, Test1Args[2]);
-            Assert(cl.ReadNextValue() == Test1Args[2]);
-            Assert(cl.ReadNextOption() == Test1Args[3]);
-            AssertCurrentIntFails(cl, Test1Args[3]);
-            AssertReadNextOptionFails(cl, Test1Args[4]);
-            Assert(cl.ReadNextValueAsInt() == 4);
-            AssertReadNextOptionFails(cl, Test1Args[5]);
-            Assert(cl.ReadNextValueAsInt() == 5);
-            AssertReadNextOptionFails(cl, Test1Args[6]);
-            Assert(cl.ReadNextValue() == Test1Args[6]);
-            AssertCurrentIntFails(cl, Test1Args[6]);
-            AssertReadNextValueFails(cl);
+            AssertReadNextOptionFails(cl, "Command");
+            AssertCurrentIntFails(cl, "Command");
+            AssertReadNextValueFails(cl, "-option1");
+            AssertCurrentIntFails(cl, "-option1");
+            AssertReadNextOptionFails(cl, "SpamAndEggs");
+            AssertReadNextValueFails(cl, "-numbers");
+            AssertCurrentIntFails(cl, "-numbers");
+            AssertReadNextOptionFails(cl, "4");
+            AssertReadNextOptionFails(cl, "5");
+            AssertReadNextOptionFails(cl, "AnotherCommand");
+            AssertCurrentIntFails(cl, "AnotherCommand");
+            AssertReadNextValueFails(cl, "-option2");
+            AssertReadNextOptionFails(cl, "-notanoption.jpg");
+            AssertThrows(() => cl.ReadNextValue());
             Assert(cl.ReadNextArg() == null);
             Assert(cl.ReadNextOption() == null);
-        }
-
-        static void SimpleTest(string[] args)
-        {
-            var cl = new CommandLineLexer(Test1Args);
-
-            foreach (var arg in Test1Args)
-            {
-                Assert(arg == cl.ReadNextArg());
-                Assert(arg == cl.Current);
-                int i;
-                if (int.TryParse(arg, out i))
-                {
-                    Assert(i == cl.CurrentAsInt);
-                }
-            }
-            Assert(null == cl.ReadNextArg());
         }
 
         static void Assert(bool success)
@@ -148,7 +118,7 @@ namespace UnitTest
             if (!success) throw new ApplicationException("Unit test failure.");
         }
 
-        static void AssertReadNextValueFails(CommandLineLexer cl)
+        static void AssertReadNextValueFails(CommandLineLexer cl, string expectedOption)
         {
             bool failure = false;
             try
@@ -158,7 +128,7 @@ namespace UnitTest
             }
             catch (Exception err)
             {
-                if (!err.Message.EndsWith("Value expected but reached end of argument list."))
+                if (!err.Message.EndsWith($"Expected value but found option \"{expectedOption}\"."))
                 {
                     throw new ApplicationException("ReadNextValue Failure: Error message mismatch: " + err.Message);
                 }
@@ -180,7 +150,7 @@ namespace UnitTest
             }
             catch (Exception err)
             {
-                if (!err.Message.EndsWith($"Option expected. Found \"{expectedArg}\""))
+                if (!err.Message.EndsWith($"Expected option but found argument \"{expectedArg}\"."))
                 {
                     throw new ApplicationException("ReadNextOption Failure: Error message mismatch: " + err.Message);
                 }
@@ -210,10 +180,25 @@ namespace UnitTest
 
             if (failure)
             {
-                throw new ApplicationException("CurrentInt didn't faile when it should have.");
+                throw new ApplicationException("CurrentInt didn't fail when it should have.");
             }
         }
 
-    }
+        static void AssertThrows(Action action)
+        {
+            bool failure = false;
+            try
+            {
+                action();
+                failure = true;
+            }
+            catch (Exception)
+            {
+                // Do nothing - failure was expected
+            }
 
+            if (failure)
+                throw new ApplicationException("Action didn't throw when it should have.");
+        }
+    }
 }

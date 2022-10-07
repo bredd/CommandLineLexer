@@ -50,28 +50,45 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace CodeBit
 {
     /// <summary>
-    /// Yet another command-line parsing helper class. This one
-    /// uses a lexer structure and expects the application to read the
-    /// command-line options in sequence. Distinction from a simple
+    /// Yet another command-line parsing helper class.
+    /// </summary>
+    /// <remarks>
+    /// <para>This one command-line tool uses a lexer structure and expects the application
+    /// to read the command-line options in sequence. Distinction from a simple
     /// foreach loop on 'args' is that this class makes error reporting easier
     /// by tracking the context.
-    /// </summary>
+    /// </para>
+    /// <para>The lexer is sensitive to whether an argument is quoted or not. For example,
+    /// <c>-i</c> is an option whereas <c>"-i"</c> is not. Among other advantages, this
+    /// allows filenames that start with dash to be distinguished from options. It also
+    /// provides for better error detection and reporting.
+    /// </para>
+    /// <para>In order to be quote-sensitive, the lexer takes the full original command
+    /// line instead of the traditional argument list. The default constructor uses
+    /// this or you can pass <see cref="Environment.CommandLine"/> to the constructor.
+    /// </para>
+    /// </remarks>
     class CommandLineLexer : IEnumerator<string>
     {
-        string[] m_args;
-        int m_currentArg;
+        string m_args;
+        int m_pos;
+        string m_currentArg;
         string m_latestOption;
+        bool m_isEmptyCommandLine;
+        bool m_isQuoted;
+        bool m_isOption;
 
         /// <summary>
         /// Initialize with the command line from the environment
         /// </summary>
         /// <param name="acceptEmpty">If true, accept an empty command line. Else throws an exception.</param>
-        public CommandLineLexer(bool acceptEmpty=false)
-            : this(Environment.GetCommandLineArgs(), acceptEmpty)
+        public CommandLineLexer()
+            : this(Environment.CommandLine)
         {
         }
 
@@ -80,13 +97,9 @@ namespace CodeBit
         /// </summary>
         /// <param name="args">An array of command-line arguments.</param>
         /// <param name="acceptEmpty">If true, accept an empty command line. Else throws an exception.</param>
-        public CommandLineLexer(string[] args, bool acceptEmpty=false)
+        public CommandLineLexer(string args)
         {
             m_args = args;
-            if (m_args.Length == 0 && !acceptEmpty)
-            {
-                throw new CommandLineException("Empty Command Line.");
-            }
             Reset();
         }
 
@@ -95,8 +108,13 @@ namespace CodeBit
         /// </summary>
         public void Reset()
         {
-            m_currentArg = -1;
-            m_latestOption = string.Empty;
+            m_pos = 0;
+            while (m_pos < m_args.Length && char.IsWhiteSpace(m_args[m_pos])) ++m_pos;
+            m_isEmptyCommandLine = (m_pos >= m_args.Length);
+            m_currentArg = null;
+            m_isOption = false;
+            m_latestOption = String.Empty;
+            m_isQuoted = false;
         }
 
         /// <summary>
@@ -106,11 +124,20 @@ namespace CodeBit
         {
             get
             {
-                if (m_currentArg < 0) throw new InvalidOperationException("CommandLineLexer: Must call MoveNext() before Current");
-                if (m_currentArg >= m_args.Length) throw new InvalidOperationException("CommandLineLexer: All arguments have been read.");
-                return m_args[m_currentArg];
+                if (m_currentArg == null)
+                {
+                    throw new InvalidOperationException(
+                        (m_pos == 0) ? "CommandLineLexer: Must call MoveNext() before Current"
+                        : "CommandLineLexer: All arguments have been read.");
+                }
+                return m_currentArg;
             }
         }
+
+        /// <summary>
+        /// Indicates whether the command line is entirely empty.
+        /// </summary>
+        public bool IsEmptyCommandLine => m_isEmptyCommandLine;
 
         /// <summary>
         /// Indicates whether the current argument is an option.
@@ -118,14 +145,19 @@ namespace CodeBit
         /// <remarks>
         /// A command-line argument starts with a dash.
         /// </remarks>
-        public bool IsOption
-        {
-            get
-            {
-                return m_currentArg < m_args.Length && m_args[m_currentArg][0] == '-';
-            }
-        }
+        public bool IsOption => m_isOption;
 
+        /// <summary>
+        /// Indicates whether the current argument was quoted on the command line.
+        /// </summary>
+        /// <remarks>Quotes are removed during lexing. This indicates whether they
+        /// were originally present.
+        /// </remarks>
+        public bool IsQuoted => m_isQuoted;
+
+        /// <summary>
+        /// The current argument in the iteration.
+        /// </summary>
         object IEnumerator.Current => Current;
 
         /// <summary>
@@ -138,7 +170,7 @@ namespace CodeBit
             {
                 int value;
                 if (!int.TryParse(Current, out value))
-                    throw new CommandLineException($"{OptionErrPrefix}Expected integer; found \"{Current}\".");
+                    throw new CommandLineException($"{GetOptionErrPrefix(m_latestOption)}Expected integer; found \"{m_currentArg}\".");
                 return value;
             }
         }
@@ -181,55 +213,48 @@ namespace CodeBit
         /// <returns>True if another argument was read. Else, false.</returns>
         public bool MoveNext()
         {
-            if (m_currentArg >= m_args.Length) return false;
-            ++m_currentArg;
-            if (m_currentArg >= m_args.Length)
-            {
-                m_latestOption = string.Empty;
-                return false;
-            }
-            return true;
-        }
+            m_isOption = false;
+            while (m_pos < m_args.Length && char.IsWhiteSpace(m_args[m_pos])) ++m_pos;
+            if (m_pos >= m_args.Length) return false;
 
-        /// <summary>
-        /// Moves to the next option
-        /// </summary>
-        /// <remarks>
-        /// Throws an <see cref="CommandLineException"/> if the next argument is is NOT an option
-        /// (prefixed with a hyphen). When an exception is thrown, the current value does not advance.
-        /// </remarks>
-        /// <returns>True if moved to an option. False if at the end of the argument set.</returns>
-        /// <exception cref="CommandLineException">Thrown if the next argument is NOT an option.</exception>
-        public bool MoveNextOption()
-        {
-            m_latestOption = string.Empty;
-            if (m_currentArg >= m_args.Length - 1)
+            // Quoted argument
+            if (m_args[m_pos] == '"')
             {
-                m_currentArg = m_args.Length;
-                return false; 
-            }
-            if (m_args[m_currentArg + 1].Length <= 0 || m_args[m_currentArg + 1][0] != '-')
-                ThrowValueError($"Option expected. Found \"{m_args[m_currentArg + 1]}\"");
-            ++m_currentArg;
-            m_latestOption = m_args[m_currentArg];
-            return true;
-        }
+                m_isQuoted = true;
+                m_pos++;
+                var sb = new StringBuilder();
+                while (m_pos < m_args.Length)
+                {
+                    if (m_args[m_pos] == '"')
+                    {
+                        ++m_pos;
 
-        /// <summary>
-        /// Moves to the next value, presumably for the current option.
-        /// </summary>
-        /// <remarks>
-        /// Throws an <see cref="CommandLineException"/> if there are no more arguments or if the next
-        /// argument is is an option (prefixed with a hyphen). When an exception is thrown, the current
-        /// value does not advance.
-        /// </remarks>
-        /// <exception cref="CommandLineException">Thrown if at the end of the argument string
-        /// or the next argument is an option.</exception>
-        public void MoveNextValue()
-        {
-            if (m_currentArg >= m_args.Length - 1)
-                ThrowValueError("Value expected but reached end of argument list.");
-            ++m_currentArg;
+                        // If not two consecutive quotes exit the loop
+                        if (m_pos >= m_args.Length || m_args[m_pos + 1] != '"')
+                            break;
+                    }
+                    sb.Append(m_args[m_pos]);
+                    ++m_pos;
+                }
+                m_currentArg = sb.ToString();
+            }
+
+            else
+            {
+                int anchor = m_pos;
+                while (m_pos < m_args.Length && !char.IsWhiteSpace(m_args[m_pos]))
+                    ++m_pos;
+                m_currentArg = m_args.Substring(anchor, m_pos - anchor);
+
+                System.Diagnostics.Debug.Assert(m_currentArg.Length > 0);
+                if (m_currentArg[0] == '-')
+                {
+                    m_isOption = true;
+                    m_latestOption = m_currentArg;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -239,7 +264,7 @@ namespace CodeBit
         public string ReadNextArg()
         {
             if (!MoveNext()) return null;
-            return Current;
+            return m_currentArg;
         }
 
         /// <summary>
@@ -249,8 +274,8 @@ namespace CodeBit
         /// <remarks>
         /// <para>The next argument must be an option, not a value. That is, it must be
         /// prefixed with a hyphen. If the next argument does not have a hyphen prefix
-        /// then a <see cref="CommandLineException"/> is thrown. If there are no more
-        /// arguments then null is returned.</para>
+        /// then a <see cref="CommandLineException"/> is thrown with a meaningful error
+        /// message. If there are no more arguments then null is returned.</para>
         /// <para>The null return behavior is in contrast with <see cref="ReadNextValue"/>
         /// which throws an exception if there are no more arguments. But it makes sense
         /// in the context in which each method is used.</para>
@@ -259,8 +284,10 @@ namespace CodeBit
         /// <exception cref="CommandLineException">Thrown if the next argument is not an option.</exception>
         public string ReadNextOption()
         {
-            if (!MoveNextOption()) return null;
-            return Current;
+            if (!MoveNext()) return null;
+            if (!IsOption)
+                throw new CommandLineException($"Expected option but found argument \"{m_currentArg}\".");
+            return m_currentArg;
         }
 
         /// <summary>
@@ -272,12 +299,16 @@ namespace CodeBit
         /// prefixed with a hyphen. If at the end of the argument string or the value
         /// is an option then an <see cref="CommandLineException"/> is thrown.
         /// </remarks>
-        /// <exception cref="CommandLineException">Thrown if at the end of the argument string
-        /// or the next argument is an option.</exception>
+        /// <exception cref="CommandLineException">Thrown with a user-friendly message
+        /// if at the end of the argument string or the next argument is an option.</exception>
         public string ReadNextValue()
         {
-            MoveNextValue();
-            return Current;
+            string latestOption = m_latestOption; // Save this first because if the next value is an option it will be overwritten
+            if (!MoveNext())
+                throw new CommandLineException(GetOptionErrPrefix(latestOption) + "Expected value but reached end of argument list.");
+            if (IsOption)
+                throw new CommandLineException($"{GetOptionErrPrefix(latestOption)}Expected value but found option \"{m_currentArg}\".");
+            return m_currentArg;
         }
 
         /// <summary>
@@ -293,21 +324,30 @@ namespace CodeBit
         /// or the next argument is an option.</exception>
         public int ReadNextValueAsInt()
         {
-            MoveNextValue();
+            ReadNextValue();
             return CurrentAsInt;
         }
 
         /// <summary>
-        /// Throws a <see cref="CommandLineException"/> with the specified error message.
+        /// If the current argument is not an option, throws a <see cref="CommandLineException"/>
+        /// with a meaningful error message.
         /// </summary>
-        /// <param name="message">An error message.</param>
-        /// <remarks>
-        /// The message is prefixed with "Command Line Error: "
-        /// </remarks>
-        /*[DoesNotReturn] Requires .Net 5.0_ or .Net Core 3.0+ */
-        public void ThrowError(string message)
+        /// <exception cref="CommandLineException">Thrown if the current argument is not an option.</exception>
+        public void ThrowIfNotOption()
         {
-            throw new CommandLineException("Command Line Error: " + message);
+            if (!m_isOption)
+                throw new CommandLineException($"Option expected. Found \"{m_currentArg}\"");
+        }
+
+        /// <summary>
+        /// If the current argument is not a value, throws a <see cref="CommandLineException"/>
+        /// with a meaningful error message.
+        /// </summary>
+        /// <exception cref="CommandLineException">Thrown if the current argument is not an option.</exception>
+        public void ThrowIfNotValue()
+        {
+            if (m_isOption)
+                throw new CommandLineException($"Value expected. Found \"{m_currentArg}\"");
         }
 
         /// <summary>
@@ -320,7 +360,7 @@ namespace CodeBit
         /*[DoesNotReturn] Requires .Net 5.0_ or .Net Core 3.0+ */
         public void ThrowValueError(string message)
         {
-            throw new CommandLineException(OptionErrPrefix + message);
+            throw new CommandLineException(GetOptionErrPrefix(m_latestOption) + message);
         }
 
         /// <summary>
@@ -329,17 +369,14 @@ namespace CodeBit
         /*[DoesNotReturn]  Requires .Net 5.0_ or .Net Core 3.0+ */
         public void ThrowUnexpectedArgError()
         {
-            throw new CommandLineException("Command Line Error: Unexpected argument: " + Current);
+            throw new CommandLineException("Command Line Error: Unexpected argument: " + m_currentArg);
         }
 
-        private string OptionErrPrefix
+        private string GetOptionErrPrefix(string option)
         {
-            get
-            {
-                return (string.IsNullOrEmpty(m_latestOption))
-                    ? "Command Line Error: "
-                    : $"Command Line Error after Option \"{m_latestOption}\": ";
-            }
+            return (string.IsNullOrEmpty(option))
+                ? String.Empty
+                : $"Following Option \"{option}\" ";
         }
 
     }
@@ -353,7 +390,7 @@ namespace CodeBit
     class CommandLineException : Exception
     {
         public CommandLineException(string errorMessage)
-            : base(errorMessage)
+            : base("Command Line Error: " + errorMessage)
         {
         }
 
