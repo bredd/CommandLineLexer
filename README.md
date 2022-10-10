@@ -5,9 +5,9 @@ This is yet another command-line parser. This one uses a reader / enumerator des
 Here's a sample of a typical use pattern:
 
 ```
-static void ParseCommandLineSample(string[] args)
+static void ParseCommandLineSample()
 {
-    var clx = new CommandLineLexer(args);
+    var clx = new CommandLineLexer();
 
     arg_command = clx.ReadNextArg();
     while (clx.MoveNextOption())
