@@ -63,7 +63,13 @@ namespace UnitTest
         static void Test0()
         {
             var cl = new CommandLineLexer(String.Empty);
-            Assert(cl.IsEmptyCommandLine);
+            AssertThrows(() => { var c = cl.Current; }, "Must call MoveNext() before Current.");
+            Assert(!cl.MoveNext());
+
+            cl = new CommandLineLexer(" ");
+            AssertThrows(() => { var c = cl.Current; }, "Must call MoveNext() before Current.");
+            Assert(!cl.MoveNext());
+            AssertThrows(() => { var c = cl.Current; }, "All arguments have been read.");
         }
 
         static string Test1Args = "Command -option1 SpamAndEggs -numbers 4 5 AnotherCommand -option2 \"-notanoption.jpg\"  ";
@@ -108,7 +114,7 @@ namespace UnitTest
             AssertCurrentIntFails(cl, "AnotherCommand");
             AssertReadNextValueFails(cl, "-option2");
             AssertReadNextOptionFails(cl, "-notanoption.jpg");
-            AssertThrows(() => cl.ReadNextValue());
+            AssertThrows(() => cl.ReadNextValue(), "Expected value but reached end of argument list.");
             Assert(cl.ReadNextArg() == null);
             Assert(cl.ReadNextOption() == null);
         }
@@ -184,7 +190,7 @@ namespace UnitTest
             }
         }
 
-        static void AssertThrows(Action action)
+        static void AssertThrows(Action action, string expectedMessageTail)
         {
             bool failure = false;
             try
@@ -192,8 +198,12 @@ namespace UnitTest
                 action();
                 failure = true;
             }
-            catch (Exception)
+            catch (Exception err)
             {
+                if (!err.Message.EndsWith(expectedMessageTail))
+                {
+                    throw new ApplicationException($"Error message mismatch. Expected ending \"{expectedMessageTail}\", found \"{err.Message}\".");
+                }
                 // Do nothing - failure was expected
             }
 

@@ -76,10 +76,10 @@ namespace Bredd
     class CommandLineLexer : IEnumerator<string>
     {
         string m_args;
+        int m_start;
         int m_pos;
         string m_currentArg;
         string m_latestOption;
-        bool m_isEmptyCommandLine;
         bool m_isQuoted;
         bool m_isOption;
 
@@ -90,6 +90,9 @@ namespace Bredd
         public CommandLineLexer()
             : this(Environment.CommandLine)
         {
+            ReadNextArg();  // Read the application filename
+            m_start = m_pos;
+            m_currentArg = null;
         }
 
         /// <summary>
@@ -100,6 +103,7 @@ namespace Bredd
         public CommandLineLexer(string args)
         {
             m_args = args;
+            m_start = 0;
             Reset();
         }
 
@@ -108,9 +112,7 @@ namespace Bredd
         /// </summary>
         public void Reset()
         {
-            m_pos = 0;
-            while (m_pos < m_args.Length && char.IsWhiteSpace(m_args[m_pos])) ++m_pos;
-            m_isEmptyCommandLine = (m_pos >= m_args.Length);
+            m_pos = m_start;
             m_currentArg = null;
             m_isOption = false;
             m_latestOption = String.Empty;
@@ -127,17 +129,12 @@ namespace Bredd
                 if (m_currentArg == null)
                 {
                     throw new InvalidOperationException(
-                        (m_pos == 0) ? "CommandLineLexer: Must call MoveNext() before Current"
+                        (m_pos <= m_start) ? "CommandLineLexer: Must call MoveNext() before Current."
                         : "CommandLineLexer: All arguments have been read.");
                 }
                 return m_currentArg;
             }
         }
-
-        /// <summary>
-        /// Indicates whether the command line is entirely empty.
-        /// </summary>
-        public bool IsEmptyCommandLine => m_isEmptyCommandLine;
 
         /// <summary>
         /// Indicates whether the current argument is an option.
@@ -215,7 +212,11 @@ namespace Bredd
         {
             m_isOption = false;
             while (m_pos < m_args.Length && char.IsWhiteSpace(m_args[m_pos])) ++m_pos;
-            if (m_pos >= m_args.Length) return false;
+            if (m_pos >= m_args.Length)
+            {
+                m_currentArg = null;
+                return false;
+            }
 
             // Quoted argument
             if (m_args[m_pos] == '"')
@@ -230,7 +231,7 @@ namespace Bredd
                         ++m_pos;
 
                         // If not two consecutive quotes exit the loop
-                        if (m_pos >= m_args.Length || m_args[m_pos + 1] != '"')
+                        if (m_pos >= m_args.Length || m_args[m_pos] != '"')
                             break;
                     }
                     sb.Append(m_args[m_pos]);
@@ -370,6 +371,15 @@ namespace Bredd
         public void ThrowUnexpectedArgError()
         {
             throw new CommandLineException("Command Line Error: Unexpected argument: " + m_currentArg);
+        }
+
+        /// <summary>
+        /// Throws an error indicating that the current argument was unexpected.
+        /// </summary>
+        /*[DoesNotReturn]  Requires .Net 5.0_ or .Net Core 3.0+ */
+        public void ThrowUnknownOptionError()
+        {
+            throw new CommandLineException("Command Line Error: Unknown option: " + m_currentArg);
         }
 
         private string GetOptionErrPrefix(string option)
