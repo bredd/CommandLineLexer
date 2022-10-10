@@ -1,7 +1,7 @@
 ﻿/*
 CodeBit Metadata
 
-&name=CommandLineLexer.cs
+&name=Bredd/CommandLineLexer.cs
 &description="CodeBit class for lexing (parsing) command lines."
 &author="Brandt Redd"
 &url=https://raw.githubusercontent.com/bredd/CommandLineLexer/main/CommandLineLexer.cs
@@ -18,7 +18,7 @@ About Codebits http://www.filemeta.org/CodeBit
 === BSD 3 Clause License ===
 https://opensource.org/licenses/BSD-3-Clause
 
-Copyright 2021 Brandt Redd
+Copyright 2021-2022 Brandt Redd
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -52,7 +52,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
-namespace CodeBit
+namespace Bredd
 {
     /// <summary>
     /// Yet another command-line parsing helper class.
